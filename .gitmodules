@@ -1,0 +1,3 @@
+[submodule "greeter_lib"]
+	path = greeter_lib
+	url = https://github.com/Johnsoryna/m324-greeter-lib.git
