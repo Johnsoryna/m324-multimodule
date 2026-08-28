@@ -8,6 +8,8 @@
 | **Datum** | 28.08.2026 |
 | **Autor** | Johnny Leonhardt |
 | **Projekt** | `C:\Code\324\MultiModuleMavenProject` |
+| **Repository (Parent + app_main)** | <https://github.com/Johnsoryna/m324-multimodule> |
+| **Repository (Submodul greeter_lib)** | <https://github.com/Johnsoryna/m324-greeter-lib> |
 
 **Umgebung, in der alle Befehle dieses Dokuments ausgeführt wurden**
 
@@ -242,7 +244,7 @@ Das Verzeichnis `greeter_lib/` wird gelöscht (der Inhalt liegt bereits sicher a
 
 ```bash
 rm -rf greeter_lib
-git submodule add https://github.com/<GITHUB-USER>/m324-greeter-lib.git greeter_lib
+git submodule add https://github.com/Johnsoryna/m324-greeter-lib.git greeter_lib
 git commit -m "greeter_lib als Git-Submodul eingebunden"
 git push
 ```
@@ -254,17 +256,29 @@ git push
 ```ini
 [submodule "greeter_lib"]
 	path = greeter_lib
-	url = https://github.com/<GITHUB-USER>/m324-greeter-lib.git
+	url = https://github.com/Johnsoryna/m324-greeter-lib.git
 ```
 
 **2. Einen Index-Eintrag vom Typ `160000` (gitlink)** — das ist der Kern des Mechanismus: Das Parent-Repository speichert **nicht den Code**, sondern **nur die Commit-ID**, auf der das Submodul steht.
 
 ```
 $ git ls-files --stage greeter_lib
-160000 1ed86d1... 0	greeter_lib
+160000 1ed86d13ab0a21a3ca61dc7f66dfc94682dcad49 0	greeter_lib
 
 $ git submodule status
- 1ed86d1... greeter_lib (heads/main)
+ 1ed86d13ab0a21a3ca61dc7f66dfc94682dcad49 greeter_lib (heads/main)
+```
+
+Der Dateimodus `160000` steht ausschliesslich für Submodule — normale Dateien haben `100644`, Verzeichnisse `040000`. Im Parent-Repository sind deshalb nur diese Einträge versioniert:
+
+```
+100644  .gitignore
+100644  .gitmodules
+100644  app_main/pom.xml
+100644  app_main/src/main/java/ch/modul324/app/Main.java
+100644  doku/M324_W35_Java_Projekt_und_Artefakte.md
+160000  greeter_lib                                      ← nur der Zeiger, kein Code
+100644  pom.xml
 ```
 
 ![.gitmodules Datei](screenshots/06_gitmodules_datei.png)
@@ -275,24 +289,67 @@ Auf GitHub erscheint `greeter_lib` im Parent-Repository nicht als Ordner, sonder
 
 #### Schritt 4 — Nachweis: frischer Klon baut durch
 
-Ein normaler `git clone` holt das Submodul **leer**. Das ist der wichtigste Stolperstein:
+Um zu beweisen, dass das Projekt tatsächlich über das Submodul baut, wurde in einem leeren Verzeichnis frisch geklont — einmal falsch und einmal richtig.
+
+**Test A — normaler `git clone` (der klassische Stolperstein)**
 
 ```bash
-git clone https://github.com/<GITHUB-USER>/m324-multimodule.git test
-cd test && ls greeter_lib     # → leer, Build schlägt fehl
+git clone https://github.com/Johnsoryna/m324-multimodule.git klontest_ohne
+cd klontest_ohne
+ls -A greeter_lib          # → 0 Dateien, das Verzeichnis ist leer
+mvn clean install
 ```
 
-Richtig ist eine der beiden Varianten:
+Der Build bricht sofort ab, weil das Parent-POM ein Modul erwartet, dessen `pom.xml` gar nicht existiert:
+
+```
+[ERROR] Child module ...\klontest_ohne\greeter_lib\pom.xml
+        of ...\klontest_ohne\pom.xml does not exist
+[ERROR] The build could not read 1 project
+```
+
+Der Grund: Der Klon holt den gitlink, aber nicht den Inhalt des fremden Repositories.
+
+**Test B — mit Submodulen**
 
 ```bash
-# Variante A: direkt beim Klonen
-git clone --recurse-submodules https://github.com/<GITHUB-USER>/m324-multimodule.git
+git clone --recurse-submodules https://github.com/Johnsoryna/m324-multimodule.git klontest_mit
+cd klontest_mit
+mvn clean install
+```
 
-# Variante B: nachträglich
+```
+$ ls greeter_lib
+pom.xml  src
+
+$ git submodule status
+ 1ed86d13ab0a21a3ca61dc7f66dfc94682dcad49 greeter_lib (heads/main)
+```
+
+```
+[INFO] Multi Module Maven Project                                    [pom]
+[INFO] Greeter Library                                               [jar]
+[INFO] App Main                                                      [jar]
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Reactor Summary for Multi Module Maven Project 1.0-SNAPSHOT:
+[INFO] Multi Module Maven Project ......................... SUCCESS [  1.956 s]
+[INFO] Greeter Library .................................... SUCCESS [ 19.434 s]
+[INFO] App Main ........................................... SUCCESS [  8.798 s]
+[INFO] BUILD SUCCESS
+```
+
+```
+$ java -jar app_main/target/app_main-1.0-SNAPSHOT.jar Klontest
+Hallo, Klontest! Gruss aus dem greeter_lib Submodul.
+```
+
+Wurde bereits ohne `--recurse-submodules` geklont, lässt sich das nachholen:
+
+```bash
 git submodule update --init --recursive
 ```
 
-Danach läuft `mvn clean install` im frischen Klon durch — der Beweis, dass das Projekt vollständig über das Submodul baut.
+Damit ist nachgewiesen: Der Code der Bibliothek kommt ausschliesslich aus dem zweiten Repository, und das Multi-Module-Projekt baut trotzdem vollständig durch.
 
 #### Wichtige Eigenschaften von Submodulen
 
