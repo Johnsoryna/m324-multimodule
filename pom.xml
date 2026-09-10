@@ -28,7 +28,8 @@
             <dependency>
                 <groupId>ch.modul324</groupId>
                 <artifactId>greeter_lib</artifactId>
-                <version>${project.version}</version>
+                <!-- greeter_lib ist seit 1.0.0 ein eigenstaendiges Release-Artefakt (kein Parent mehr) -->
+                <version>1.0.0</version>
             </dependency>
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
